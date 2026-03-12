@@ -424,3 +424,264 @@ class CMSAPITest(TestCase):
             content_type='application/json',
         )
         self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Hierarchical page tests
+# ---------------------------------------------------------------------------
+
+
+class HierarchicalPageTest(TestCase):
+    def setUp(self):
+        self.site = Site.objects.update_or_create(
+            domain='example.com', defaults={'name': 'Example'}
+        )[0]
+        self.root = Page.objects.create(
+            site=self.site, path='/', template_name='cms/home.html', title='Home'
+        )
+        self.about = Page.objects.create(
+            site=self.site, path='/about/', template_name='cms/home.html',
+            title='About', parent=self.root, sort_order=1,
+        )
+        self.team = Page.objects.create(
+            site=self.site, path='/about/team/', template_name='cms/home.html',
+            title='Team', parent=self.about, sort_order=1,
+        )
+
+    def test_page_depth(self):
+        self.assertEqual(self.root.depth, 0)
+        self.assertEqual(self.about.depth, 1)
+        self.assertEqual(self.team.depth, 2)
+
+    def test_get_ancestors(self):
+        ancestors = self.team.get_ancestors()
+        self.assertEqual(len(ancestors), 2)
+        self.assertEqual(ancestors[0], self.root)
+        self.assertEqual(ancestors[1], self.about)
+
+    def test_get_breadcrumbs(self):
+        crumbs = self.team.get_breadcrumbs()
+        self.assertEqual(len(crumbs), 3)
+        self.assertEqual(crumbs[-1], self.team)
+
+    def test_get_children(self):
+        children = self.root.get_children()
+        self.assertEqual(children.count(), 1)
+        self.assertEqual(children.first(), self.about)
+
+    def test_get_siblings(self):
+        sibling = Page.objects.create(
+            site=self.site, path='/blog/', template_name='cms/home.html',
+            title='Blog', parent=self.root, sort_order=2,
+        )
+        siblings = self.about.get_siblings()
+        self.assertIn(sibling, siblings)
+        self.assertNotIn(self.about, siblings)
+
+    def test_root_page_ancestors_empty(self):
+        self.assertEqual(self.root.get_ancestors(), [])
+
+    def test_unpublished_children_excluded(self):
+        Page.objects.create(
+            site=self.site, path='/about/secret/', template_name='cms/home.html',
+            title='Secret', parent=self.about, is_published=False,
+        )
+        children = self.about.get_children()
+        self.assertEqual(children.count(), 1)  # only 'team'
+
+
+# ---------------------------------------------------------------------------
+# Custom admin panel tests
+# ---------------------------------------------------------------------------
+
+
+class CustomAdminAuthTest(TestCase):
+    def setUp(self):
+        self.site = Site.objects.get_or_create(domain='testserver', name='Test')[0]
+        self.client = Client(SERVER_NAME='testserver')
+
+    def test_login_page_renders(self):
+        resp = self.client.get(reverse('cms_login'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Sign in')
+
+    def test_register_page_renders(self):
+        resp = self.client.get(reverse('cms_register'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Create a new account')
+
+    def test_login_success(self):
+        User.objects.create_user('testuser', password='testpass123')
+        resp = self.client.post(reverse('cms_login'), {
+            'username': 'testuser',
+            'password': 'testpass123',
+        })
+        self.assertEqual(resp.status_code, 302)
+
+    def test_register_creates_user(self):
+        resp = self.client.post(reverse('cms_register'), {
+            'username': 'newuser',
+            'email': 'new@example.com',
+            'password1': 'ComplexPass123!',
+            'password2': 'ComplexPass123!',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+
+    def test_logout_redirects(self):
+        User.objects.create_user('testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        resp = self.client.get(reverse('cms_logout'))
+        self.assertEqual(resp.status_code, 302)
+
+    def test_dashboard_requires_login(self):
+        resp = self.client.get(reverse('cms_admin_dashboard'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('login', resp.url)
+
+
+class CustomAdminDashboardTest(TestCase):
+    def setUp(self):
+        self.site = Site.objects.get_or_create(domain='testserver', name='Test')[0]
+        self.client = Client(SERVER_NAME='testserver')
+        self.user = User.objects.create_user('admin', password='pass', is_staff=True)
+        self.client.login(username='admin', password='pass')
+
+    def test_dashboard_renders(self):
+        resp = self.client.get(reverse('cms_admin_dashboard'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Dashboard')
+
+    def test_page_list_renders(self):
+        resp = self.client.get(reverse('cms_admin_page_list'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_entity_list_renders(self):
+        resp = self.client.get(reverse('cms_admin_entity_list'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_page_create(self):
+        resp = self.client.post(reverse('cms_admin_page_create'), {
+            'title': 'New Page',
+            'path': '/new/',
+            'template_name': 'cms/home.html',
+            'sort_order': '0',
+            'is_published': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(Page.objects.filter(path='/new/', site=self.site).exists())
+
+    def test_page_edit(self):
+        page = Page.objects.create(
+            site=self.site, path='/edit-me/', template_name='cms/home.html', title='Old'
+        )
+        resp = self.client.post(reverse('cms_admin_page_edit', args=[page.pk]), {
+            'title': 'Updated',
+            'path': '/edit-me/',
+            'template_name': 'cms/home.html',
+            'sort_order': '0',
+            'is_published': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        page.refresh_from_db()
+        self.assertEqual(page.title, 'Updated')
+
+    def test_page_delete(self):
+        page = Page.objects.create(
+            site=self.site, path='/delete-me/', template_name='cms/home.html'
+        )
+        resp = self.client.post(reverse('cms_admin_page_delete', args=[page.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Page.objects.filter(pk=page.pk).exists())
+
+    def test_entity_create(self):
+        resp = self.client.post(reverse('cms_admin_entity_create'), {
+            'entity_type': 'product',
+            'slug': 'test-product',
+            'is_published': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(ContentEntity.objects.filter(slug='test-product').exists())
+
+    def test_entity_delete(self):
+        entity = ContentEntity.objects.create(
+            site=self.site, entity_type='product', slug='delete-me',
+        )
+        resp = self.client.post(reverse('cms_admin_entity_delete', args=[entity.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(ContentEntity.objects.filter(pk=entity.pk).exists())
+
+
+class CustomAdminUserManagementTest(TestCase):
+    def setUp(self):
+        self.site = Site.objects.get_or_create(domain='testserver', name='Test')[0]
+        self.client = Client(SERVER_NAME='testserver')
+        self.staff = User.objects.create_user('admin', password='pass', is_staff=True)
+        self.client.login(username='admin', password='pass')
+
+    def test_user_list_renders(self):
+        resp = self.client.get(reverse('cms_admin_user_list'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'admin')
+
+    def test_toggle_staff(self):
+        user = User.objects.create_user('regular', password='pass', is_staff=False)
+        resp = self.client.post(reverse('cms_admin_user_toggle_staff', args=[user.pk]))
+        self.assertEqual(resp.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.is_staff)
+
+    def test_toggle_active(self):
+        user = User.objects.create_user('regular', password='pass', is_active=True)
+        resp = self.client.post(reverse('cms_admin_user_toggle_active', args=[user.pk]))
+        self.assertEqual(resp.status_code, 302)
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+
+    def test_cannot_toggle_self(self):
+        resp = self.client.post(reverse('cms_admin_user_toggle_staff', args=[self.staff.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.is_staff)  # unchanged
+
+    def test_non_staff_redirected_from_user_list(self):
+        normal = User.objects.create_user('normal', password='pass', is_staff=False)
+        self.client.login(username='normal', password='pass')
+        resp = self.client.get(reverse('cms_admin_user_list'))
+        self.assertEqual(resp.status_code, 302)
+
+
+class CustomAdminSiteManagementTest(TestCase):
+    def setUp(self):
+        self.site = Site.objects.get_or_create(domain='testserver', name='Test')[0]
+        self.client = Client(SERVER_NAME='testserver')
+        self.staff = User.objects.create_user('admin', password='pass', is_staff=True)
+        self.client.login(username='admin', password='pass')
+
+    def test_site_list_renders(self):
+        resp = self.client.get(reverse('cms_admin_site_list'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_site_create(self):
+        resp = self.client.post(reverse('cms_admin_site_create'), {
+            'domain': 'new.example.com',
+            'name': 'New Site',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(Site.objects.filter(domain='new.example.com').exists())
+
+    def test_site_edit(self):
+        site_obj = Site.objects.create(domain='edit.example.com', name='Edit Me')
+        resp = self.client.post(reverse('cms_admin_site_edit', args=[site_obj.pk]), {
+            'domain': 'edited.example.com',
+            'name': 'Edited',
+        })
+        self.assertEqual(resp.status_code, 302)
+        site_obj.refresh_from_db()
+        self.assertEqual(site_obj.domain, 'edited.example.com')
+
+    def test_site_delete(self):
+        site_obj = Site.objects.create(domain='delete.example.com', name='Delete Me')
+        resp = self.client.post(reverse('cms_admin_site_delete', args=[site_obj.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Site.objects.filter(pk=site_obj.pk).exists())

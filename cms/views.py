@@ -43,7 +43,12 @@ def cms_page(request, path=''):
     # 1. Try static page
     page = Page.objects.filter(site=site, path=path, is_published=True).first()
     if page:
-        context = {'page': page, 'path': path}
+        context = {
+            'page': page,
+            'path': path,
+            'breadcrumbs': page.get_breadcrumbs(),
+            'child_pages': page.get_children(),
+        }
         return render(request, page.template_name, context)
 
     # 2. Try entity routing (strip leading/trailing slashes to get slug)
