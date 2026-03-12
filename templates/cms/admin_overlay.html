@@ -1,0 +1,497 @@
+{% load cms_tags %}
+{# CMS Admin Overlay — injected into pages when cms_edit_mode is active #}
+
+<style>
+/* ============================================================
+   CMS EDIT OVERLAY STYLES
+   ============================================================ */
+
+/* Editable block highlight */
+.cms-editable {
+    position: relative;
+    outline: 2px dashed #6366f1;
+    outline-offset: 2px;
+    cursor: pointer;
+    transition: outline-color .15s;
+}
+.cms-editable:hover {
+    outline-color: #4f46e5;
+}
+.cms-editable::before {
+    content: attr(data-cms-key);
+    position: absolute;
+    top: -22px;
+    left: 0;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px 3px 0 0;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 9998;
+}
+
+/* List item highlight */
+.cms-list-item {
+    outline: 1px dashed #a5b4fc;
+    outline-offset: 2px;
+    cursor: grab;
+}
+.cms-list-item.cms-drag-over {
+    outline: 2px solid #6366f1;
+    background: #eef2ff;
+}
+
+/* Inline item highlight */
+.cms-item {
+    display: inline;
+    background: rgba(99,102,241,.1);
+    border-bottom: 2px solid #6366f1;
+}
+
+/* Edit mode toggle button */
+.cms-edit-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    transition: background .15s;
+}
+.cms-edit-toggle:hover { background: #4338ca; }
+.cms-edit-toggle--active { background: #dc2626; }
+.cms-edit-toggle--active:hover { background: #b91c1c; }
+
+/* Sidebar panel */
+#cms-sidebar {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 400px;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 24px rgba(0,0,0,.15);
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    transition: right .25s ease;
+    font-family: system-ui, sans-serif;
+}
+#cms-sidebar.cms-sidebar--open { right: 0; }
+
+#cms-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #4f46e5;
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+}
+#cms-sidebar-close {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+}
+#cms-sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+#cms-sidebar-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* Form fields */
+.cms-field { margin-bottom: 16px; }
+.cms-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.cms-field input[type=text],
+.cms-field input[type=number],
+.cms-field input[type=url],
+.cms-field input[type=date],
+.cms-field input[type=color],
+.cms-field textarea {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color .15s;
+}
+.cms-field input:focus,
+.cms-field textarea:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+}
+.cms-field textarea { min-height: 100px; resize: vertical; }
+
+/* List items in sidebar */
+.cms-list-row {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: #f9fafb;
+    cursor: grab;
+}
+.cms-list-row-handle {
+    font-size: 18px;
+    color: #9ca3af;
+    margin-right: 6px;
+    cursor: grab;
+}
+.cms-list-row-delete {
+    float: right;
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Buttons */
+.cms-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+}
+.cms-btn-primary { background: #4f46e5; color: #fff; }
+.cms-btn-primary:hover { background: #4338ca; }
+.cms-btn-secondary { background: #f3f4f6; color: #374151; }
+.cms-btn-secondary:hover { background: #e5e7eb; }
+.cms-btn-success { background: #16a34a; color: #fff; }
+.cms-btn-success:hover { background: #15803d; }
+
+/* Live preview banner */
+#cms-preview-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10002;
+    background: #fbbf24;
+    color: #1f2937;
+    text-align: center;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+</style>
+
+<!-- Sidebar panel (Alpine.js controlled) -->
+<div id="cms-sidebar"
+     x-data="cmsOverlay()"
+     x-init="init()"
+     :class="{'cms-sidebar--open': sidebarOpen}"
+>
+    <div id="cms-sidebar-header">
+        <span x-text="sidebarTitle || 'Edit Block'"></span>
+        <button id="cms-sidebar-close" @click="closeSidebar()" title="Close">&times;</button>
+    </div>
+    <div id="cms-sidebar-body">
+        <!-- Dynamic form rendered here -->
+        <template x-if="currentBlock && currentBlock.schema">
+            <div>
+                <!-- Single block -->
+                <template x-if="currentBlock.type !== 'list' && currentBlock.blockType !== 'list'">
+                    <template x-for="field in currentBlock.schema" :key="field.name">
+                        <div class="cms-field">
+                            <label x-text="field.name"></label>
+                            <template x-if="field.type === 'text' || field.type === 'url' || field.type === 'date' || field.type === 'number'">
+                                <input :type="field.type === 'number' ? 'number' : (field.type === 'url' ? 'url' : (field.type === 'date' ? 'date' : 'text'))"
+                                       :value="currentBlock.data[field.name] || ''"
+                                       @input="currentBlock.data[field.name] = $event.target.value; markDirty()"
+                                >
+                            </template>
+                            <template x-if="field.type === 'richtext'">
+                                <textarea
+                                    x-text="currentBlock.data[field.name] || ''"
+                                    @input="currentBlock.data[field.name] = $event.target.value; markDirty()"
+                                ></textarea>
+                            </template>
+                            <template x-if="field.type === 'color'">
+                                <input type="color"
+                                       :value="currentBlock.data[field.name] || '#000000'"
+                                       @input="currentBlock.data[field.name] = $event.target.value; markDirty()"
+                                >
+                            </template>
+                            <template x-if="field.type === 'boolean'">
+                                <input type="checkbox"
+                                       :checked="currentBlock.data[field.name]"
+                                       @change="currentBlock.data[field.name] = $event.target.checked; markDirty()"
+                                >
+                            </template>
+                            <template x-if="field.type === 'image'">
+                                <div>
+                                    <input type="text"
+                                           placeholder="/media/image.jpg or https://..."
+                                           :value="currentBlock.data[field.name] || ''"
+                                           @input="currentBlock.data[field.name] = $event.target.value; markDirty()"
+                                    >
+                                    <template x-if="currentBlock.data[field.name]">
+                                        <img :src="currentBlock.data[field.name]" alt="preview"
+                                             style="max-width:100%;margin-top:6px;border-radius:4px;">
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </template>
+
+                <!-- List block -->
+                <template x-if="currentBlock.blockType === 'list' || currentBlock.type === 'list'">
+                    <div>
+                        <div id="cms-list-rows"
+                             @dragover.prevent
+                             @drop="dropItem($event)"
+                        >
+                            <template x-for="(listItem, idx) in (currentBlock.items || [])" :key="idx">
+                                <div class="cms-list-row"
+                                     draggable="true"
+                                     @dragstart="dragStart($event, idx)"
+                                     @dragover.prevent="$el.classList.add('cms-drag-over')"
+                                     @dragleave="$el.classList.remove('cms-drag-over')"
+                                >
+                                    <span class="cms-list-row-handle">⠿</span>
+                                    <button class="cms-list-row-delete" @click.prevent="removeListItem(idx)" type="button">✕</button>
+                                    <template x-for="field in currentBlock.schema" :key="field.name">
+                                        <div class="cms-field" style="margin-top:8px">
+                                            <label x-text="field.name"></label>
+                                            <input type="text"
+                                                   :value="listItem[field.name] || ''"
+                                                   @input="listItem[field.name] = $event.target.value; markDirty()"
+                                            >
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <button class="cms-btn cms-btn-secondary" @click.prevent="addListItem()" type="button" style="width:100%;margin-top:8px">
+                            + Add Item
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <template x-if="!currentBlock">
+            <p style="color:#9ca3af;font-size:14px">Click any highlighted block to edit it.</p>
+        </template>
+    </div>
+    <div id="cms-sidebar-footer">
+        <button class="cms-btn cms-btn-secondary" @click="closeSidebar()">Cancel</button>
+        <button class="cms-btn cms-btn-success" @click="saveBlock()" :disabled="!dirty">
+            <span x-text="saving ? 'Saving...' : 'Save'"></span>
+        </button>
+    </div>
+</div>
+
+<!-- Live Preview Banner -->
+<div id="cms-preview-banner" x-data="{ show: true }" x-show="show">
+    ✏️ <strong>Edit Mode</strong> — Click any highlighted block to edit.
+    <button @click="show = false" style="background:transparent;border:none;cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
+</div>
+
+<script>
+/* ==========================================================
+   CMS Admin Overlay — Alpine.js component
+   ========================================================== */
+function cmsOverlay() {
+    return {
+        sidebarOpen: false,
+        sidebarTitle: '',
+        currentBlock: null,
+        dirty: false,
+        saving: false,
+        dragIndex: null,
+
+        init() {
+            // Bind click handlers to all editable blocks
+            document.querySelectorAll('.cms-editable').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openBlock(el);
+                });
+            });
+
+            // Bind click handlers to list containers
+            document.querySelectorAll('.cms-list').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openList(el);
+                });
+            });
+        },
+
+        openBlock(el) {
+            const key = el.dataset.cmsKey;
+            const blockType = el.dataset.cmsType || 'single';
+            const scope = el.dataset.cmsScope || 'local';
+            const tmpl = el.dataset.cmsTmplate || '';
+            let schema = [];
+            let data = {};
+
+            try { schema = JSON.parse(el.dataset.cmsSchema || '[]'); } catch(e) {}
+            try { data = JSON.parse(el.dataset.cmsData || '{}'); } catch(e) {}
+
+            this.currentBlock = { key, blockType, scope, schema, data, el };
+            this.sidebarTitle = `Edit: ${key}`;
+            this.dirty = false;
+            this.sidebarOpen = true;
+        },
+
+        openList(el) {
+            const key = el.dataset.cmsKey;
+            const scope = el.dataset.cmsScope || 'local';
+            let schema = [];
+            let items = [];
+
+            // Get schema from first list item
+            const firstItem = el.querySelector('.cms-list-item');
+            if (firstItem) {
+                try { schema = JSON.parse(firstItem.dataset.cmsSchema || '[]'); } catch(e) {}
+            }
+            try { items = JSON.parse(el.dataset.cmsData || '[]'); } catch(e) {}
+
+            this.currentBlock = { key, type: 'list', blockType: 'list', scope, schema, items, el };
+            this.sidebarTitle = `Edit List: ${key}`;
+            this.dirty = false;
+            this.sidebarOpen = true;
+        },
+
+        closeSidebar() {
+            this.sidebarOpen = false;
+            this.currentBlock = null;
+            this.dirty = false;
+        },
+
+        markDirty() {
+            this.dirty = true;
+        },
+
+        addListItem() {
+            if (!this.currentBlock.items) this.currentBlock.items = [];
+            const empty = {};
+            (this.currentBlock.schema || []).forEach(f => { empty[f.name] = ''; });
+            this.currentBlock.items.push(empty);
+            this.dirty = true;
+        },
+
+        removeListItem(idx) {
+            this.currentBlock.items.splice(idx, 1);
+            this.dirty = true;
+        },
+
+        dragStart(event, idx) {
+            this.dragIndex = idx;
+            event.dataTransfer.effectAllowed = 'move';
+        },
+
+        dropItem(event) {
+            event.preventDefault();
+            const rows = Array.from(event.currentTarget.querySelectorAll('.cms-list-row'));
+            const targetEl = event.target.closest('.cms-list-row');
+            if (!targetEl) return;
+            const targetIdx = rows.indexOf(targetEl);
+            targetEl.classList.remove('cms-drag-over');
+
+            if (this.dragIndex === null || this.dragIndex === targetIdx) return;
+
+            const items = this.currentBlock.items;
+            const [moved] = items.splice(this.dragIndex, 1);
+            items.splice(targetIdx, 0, moved);
+            this.dragIndex = null;
+            this.dirty = true;
+        },
+
+        async saveBlock() {
+            if (!this.currentBlock || this.saving) return;
+            this.saving = true;
+
+            const isListBlock = (this.currentBlock.blockType === 'list' || this.currentBlock.type === 'list');
+
+            const payload = {
+                key: this.currentBlock.key,
+                scope: this.currentBlock.scope,
+            };
+
+            // Try to get page_id from a hidden element or data attribute
+            const pageIdEl = document.querySelector('[data-cms-page-id]');
+            const entityIdEl = document.querySelector('[data-cms-entity-id]');
+            if (pageIdEl) payload.page_id = parseInt(pageIdEl.dataset.cmsPageId, 10);
+            if (entityIdEl) payload.entity_id = parseInt(entityIdEl.dataset.cmsEntityId, 10);
+
+            let url;
+            if (isListBlock) {
+                payload.items = this.currentBlock.items || [];
+                url = '/cms-api/save-list-block/';
+            } else {
+                payload.data = this.currentBlock.data || {};
+                url = '/cms-api/save-block/';
+            }
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const result = await resp.json();
+                if (result.ok) {
+                    this.dirty = false;
+                    this.sidebarOpen = false;
+                    window.location.reload();
+                } else {
+                    alert('Error saving: ' + (result.error || 'unknown'));
+                }
+            } catch(e) {
+                alert('Network error: ' + e.message);
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        getCsrfToken() {
+            const el = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (el) return el.value;
+            const m = document.cookie.match(/csrftoken=([^;]+)/);
+            return m ? m[1] : '';
+        },
+    };
+}
+</script>
+{% csrf_token %}

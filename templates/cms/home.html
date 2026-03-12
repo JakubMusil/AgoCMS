@@ -1,0 +1,38 @@
+{% extends "cms/base.html" %}
+{% load cms_tags %}
+
+{% block title %}{{ page.title|default:"Home" }}{% endblock %}
+
+{% block content %}
+{# Expose page id for the admin overlay save API #}
+<div data-cms-page-id="{{ page.pk }}"></div>
+
+{% editable "hero" type="single" scope="local" %}
+<section class="bg-indigo-600 text-white py-20 px-8 text-center">
+    <h1 class="text-4xl font-bold">{% item "heading" type="text" %}</h1>
+    <p class="text-xl mt-4">{% item "subheading" type="text" %}</p>
+    <a href="{% item "cta_url" type="url" %}"
+       class="mt-8 inline-block bg-white text-indigo-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100">
+        {% item "cta_label" type="text" %}
+    </a>
+</section>
+{% endeditable %}
+
+{% editable "about" type="single" scope="local" %}
+<section class="py-16 px-8 max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold mb-4">{% item "title" type="text" %}</h2>
+    <div class="prose">{% item "body" type="richtext" %}</div>
+</section>
+{% endeditable %}
+
+{% cms_list "features" scope="local" %}
+<div class="py-16 bg-gray-50">
+    <div class="max-w-5xl mx-auto px-8 grid grid-cols-3 gap-8">
+        {% item "icon" type="text" %} <!-- e.g. emoji or icon class -->
+        <h3 class="text-xl font-bold">{% item "title" type="text" %}</h3>
+        <p>{% item "description" type="text" %}</p>
+    </div>
+</div>
+{% endcms_list %}
+
+{% endblock %}
