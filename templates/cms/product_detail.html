@@ -1,0 +1,51 @@
+{% extends "cms/base.html" %}
+{% load cms_tags %}
+
+{% block title %}{{ entity.data.name|default:entity.slug }}{% endblock %}
+
+{% block content %}
+{# Expose entity id for the admin overlay save API #}
+<div data-cms-entity-id="{{ entity.pk }}"></div>
+
+<div class="max-w-5xl mx-auto px-8 py-16">
+
+    {% editable "product_info" type="single" scope="local" %}
+    <div class="grid grid-cols-2 gap-12">
+        <div>
+            <img src="{% item "image" type="image" %}" alt="{{ entity.data.name }}"
+                 class="w-full rounded-lg shadow-md">
+        </div>
+        <div>
+            <h1 class="text-3xl font-bold">{% item "name" type="text" %}</h1>
+            <p class="text-2xl text-indigo-600 font-semibold mt-2">
+                ${% item "price" type="number" %}
+            </p>
+            <div class="prose mt-4">{% item "description" type="richtext" %}</div>
+            <div class="mt-4">
+                <span class="text-sm font-bold">Color: </span>
+                <span style="display:inline-block;width:24px;height:24px;border-radius:50%;background-color:{% item "color" type="color" %}"></span>
+            </div>
+            <button class="mt-6 bg-indigo-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-indigo-700">
+                Add to Cart
+            </button>
+        </div>
+    </div>
+    {% endeditable %}
+
+    {% cms_list "related_products" scope="local" %}
+    <div class="mt-12">
+        <h2 class="text-2xl font-bold mb-6">Related Products</h2>
+        <div class="grid grid-cols-3 gap-6">
+            <div class="border rounded-lg overflow-hidden">
+                <img src="{% item "image" type="image" %}" alt="" class="w-full h-48 object-cover">
+                <div class="p-4">
+                    <h3 class="font-bold">{% item "name" type="text" %}</h3>
+                    <p class="text-indigo-600">${% item "price" type="number" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endcms_list %}
+
+</div>
+{% endblock %}
