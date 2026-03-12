@@ -1,0 +1,64 @@
+{% extends "cms/base.html" %}
+{% load cms_tags %}
+
+{% block title %}{{ page.title|default:"Blog" }}{% endblock %}
+
+{% block content %}
+<div data-cms-page-id="{{ page.pk }}">
+
+{# Breadcrumb Navigation #}
+<nav class="max-w-5xl mx-auto px-8 py-4">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        {% for crumb in breadcrumbs %}
+        <li>
+            {% if not forloop.last %}
+            <a href="{{ crumb.path }}" class="hover:text-indigo-600">{{ crumb.title|default:"Home" }}</a>
+            <span class="mx-2">/</span>
+            {% else %}
+            <span class="text-gray-900 font-medium">{{ crumb.title|default:"Blog" }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</nav>
+
+{% editable "blog_header" type="single" scope="local" %}
+<section class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-16 px-8 text-center">
+    <h1 class="text-4xl font-bold">{% item "title" type="text" %}</h1>
+    <p class="text-xl mt-4 opacity-90">{% item "subtitle" type="text" %}</p>
+</section>
+{% endeditable %}
+
+{% cms_list "blog_posts" scope="local" %}
+<article class="max-w-3xl mx-auto px-8 py-8 border-b border-gray-200">
+    <div class="flex items-center text-sm text-gray-500 mb-2">
+        <span>{% item "author" type="text" %}</span>
+        <span class="mx-2">·</span>
+        <span>{% item "date" type="date" %}</span>
+    </div>
+    <h2 class="text-2xl font-bold text-gray-900 mb-3">{% item "title" type="text" %}</h2>
+    <div class="prose text-gray-600">{% item "excerpt" type="richtext" %}</div>
+    <a href="{% item "read_more_url" type="url" %}"
+       class="inline-block mt-4 text-indigo-600 font-medium hover:text-indigo-500">
+        Read more →
+    </a>
+</article>
+{% endcms_list %}
+
+{# Child pages (sub-categories) #}
+{% if child_pages %}
+<section class="max-w-5xl mx-auto px-8 py-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Categories</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% for child in child_pages %}
+        <a href="{{ child.path }}" class="block bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <h3 class="text-lg font-semibold text-gray-900">{{ child.title }}</h3>
+            <p class="text-sm text-gray-500 mt-1">{{ child.path }}</p>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+</div>
+{% endblock %}

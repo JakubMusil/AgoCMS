@@ -1,0 +1,64 @@
+{% extends "cms/admin/base.html" %}
+
+{% block title %}Register — AgoCMS{% endblock %}
+
+{% block auth_content %}
+<div class="w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">AgoCMS</h1>
+            <p class="text-gray-500 mt-2">Create a new account</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <ul class="list-disc pl-4 space-y-1">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            <div>
+                <label for="id_username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                {{ form.username }}
+                {% if form.username.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ form.username.help_text }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="id_email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                {{ form.email }}
+            </div>
+            <div>
+                <label for="id_password1" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                {{ form.password1 }}
+                {% if form.password1.help_text %}
+                <p class="mt-1 text-xs text-gray-500">{{ form.password1.help_text }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="id_password2" class="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
+                {{ form.password2 }}
+            </div>
+            <button type="submit"
+                    class="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                Create account
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-gray-500">
+            Already have an account?
+            <a href="{% url 'cms_login' %}" class="text-indigo-600 font-medium hover:text-indigo-500">Sign in</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

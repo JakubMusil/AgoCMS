@@ -5,25 +5,70 @@ from django.utils.text import slugify
 
 
 class Page(models.Model):
-    """Represents a CMS page tied to a specific site."""
+    """Represents a CMS page tied to a specific site, with optional hierarchy."""
 
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name='pages')
+    parent = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='children',
+        help_text='Parent page for hierarchical structure',
+    )
     path = models.CharField(max_length=500, help_text='URL path, e.g. /about/')
     template_name = models.CharField(
         max_length=500,
         help_text='Path to the template file, e.g. cms/about.html',
     )
     title = models.CharField(max_length=255, blank=True)
+    sort_order = models.IntegerField(default=0, help_text='Sort order among siblings')
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('site', 'path')
-        ordering = ['path']
+        ordering = ['sort_order', 'path']
 
     def __str__(self):
         return f'{self.site.domain}{self.path}'
+
+    @property
+    def depth(self):
+        """Return the nesting depth (0 for root pages)."""
+        d = 0
+        node = self
+        while node.parent_id:
+            d += 1
+            node = node.parent
+        return d
+
+    def get_ancestors(self):
+        """Return list of ancestor pages from root to immediate parent."""
+        ancestors = []
+        node = self
+        while node.parent_id:
+            node = node.parent
+            ancestors.append(node)
+        ancestors.reverse()
+        return ancestors
+
+    def get_breadcrumbs(self):
+        """Return ancestors plus self, suitable for breadcrumb navigation."""
+        return self.get_ancestors() + [self]
+
+    def get_children(self):
+        """Return published child pages ordered by sort_order."""
+        return Page.objects.filter(
+            parent=self, site=self.site, is_published=True
+        ).order_by('sort_order', 'path')
+
+    def get_siblings(self):
+        """Return sibling pages (same parent, same site)."""
+        return Page.objects.filter(
+            parent=self.parent, site=self.site
+        ).exclude(pk=self.pk).order_by('sort_order', 'path')
 
 
 class ContentEntity(models.Model):

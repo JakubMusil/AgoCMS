@@ -132,3 +132,6 @@ SITE_ID = 1
 
 # CMS Settings
 CMS_EDIT_MODE_SESSION_KEY = 'cms_edit_mode'
+
+# Authentication
+LOGIN_URL = 'cms_login'

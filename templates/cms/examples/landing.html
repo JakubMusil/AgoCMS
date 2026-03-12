@@ -1,0 +1,74 @@
+{% extends "cms/base.html" %}
+{% load cms_tags %}
+
+{% block title %}{{ page.title|default:"Landing Page" }}{% endblock %}
+
+{% block content %}
+<div data-cms-page-id="{{ page.pk }}">
+
+{% editable "landing_hero" type="single" scope="local" %}
+<section class="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white py-32 px-8 text-center overflow-hidden">
+    <div class="relative z-10 max-w-4xl mx-auto">
+        <h1 class="text-5xl md:text-6xl font-extrabold leading-tight">{% item "headline" type="text" %}</h1>
+        <p class="text-xl md:text-2xl mt-6 opacity-90">{% item "subheadline" type="text" %}</p>
+        <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a href="{% item "primary_cta_url" type="url" %}"
+               class="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors">
+                {% item "primary_cta_text" type="text" %}
+            </a>
+            <a href="{% item "secondary_cta_url" type="url" %}"
+               class="border-2 border-white text-white px-8 py-3 rounded-full font-bold hover:bg-white hover:text-indigo-600 transition-colors">
+                {% item "secondary_cta_text" type="text" %}
+            </a>
+        </div>
+    </div>
+</section>
+{% endeditable %}
+
+{% cms_list "benefits" scope="local" %}
+<div class="max-w-6xl mx-auto px-8 py-12">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex items-start space-x-4">
+        <div class="text-3xl">{% item "icon" type="text" %}</div>
+        <div>
+            <h3 class="text-lg font-bold text-gray-900">{% item "title" type="text" %}</h3>
+            <p class="text-gray-600 mt-1">{% item "description" type="text" %}</p>
+        </div>
+    </div>
+</div>
+{% endcms_list %}
+
+{% editable "social_proof" type="single" scope="local" %}
+<section class="bg-gray-50 py-20 px-8 text-center">
+    <h2 class="text-3xl font-bold text-gray-900">{% item "heading" type="text" %}</h2>
+    <p class="text-gray-600 mt-4 max-w-2xl mx-auto">{% item "description" type="richtext" %}</p>
+</section>
+{% endeditable %}
+
+{% cms_list "testimonials" scope="local" %}
+<div class="max-w-4xl mx-auto px-8 py-8">
+    <blockquote class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div class="prose text-gray-600 italic">{% item "quote" type="richtext" %}</div>
+        <div class="mt-6 flex items-center">
+            <img src="{% item "avatar" type="image" %}" alt="" class="w-12 h-12 rounded-full object-cover">
+            <div class="ml-4">
+                <p class="font-bold text-gray-900">{% item "name" type="text" %}</p>
+                <p class="text-sm text-gray-500">{% item "role" type="text" %}</p>
+            </div>
+        </div>
+    </blockquote>
+</div>
+{% endcms_list %}
+
+{% editable "cta_bottom" type="single" scope="local" %}
+<section class="bg-indigo-600 text-white py-20 px-8 text-center">
+    <h2 class="text-3xl font-bold">{% item "heading" type="text" %}</h2>
+    <p class="text-xl mt-4 opacity-90">{% item "subheading" type="text" %}</p>
+    <a href="{% item "cta_url" type="url" %}"
+       class="mt-8 inline-block bg-white text-indigo-600 px-10 py-4 rounded-full font-bold hover:bg-gray-100 transition-colors">
+        {% item "cta_text" type="text" %}
+    </a>
+</section>
+{% endeditable %}
+
+</div>
+{% endblock %}
